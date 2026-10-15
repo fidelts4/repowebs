@@ -47,11 +47,12 @@
   <p class="sub">Calcula la energía que debes indicar en el cargador para llegar al % deseado.</p>
 
   <form class="card" id="f" novalidate>
+    <label for="current">Porcentaje actual</label>
+    <div class="field"><input id="current" type="number" inputmode="decimal" min="0" max="100" step="any" value="20"><span class="unit">%</span></div>
+
     <div class="result" id="out" aria-live="polite"></div>
     <div class="result" id="outTime" aria-live="polite"></div>
     <div class="details" id="det"></div>
-    <label for="current">Porcentaje actual</label>
-    <div class="field"><input id="current" type="number" inputmode="decimal" min="0" max="100" step="any" value="20"><span class="unit">%</span></div>
 
     <label for="target">Carga máxima deseada</label>
     <div class="field"><input id="target" type="number" inputmode="decimal" min="1" max="100" step="any" value="80"><span class="unit">%</span></div>
