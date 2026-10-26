@@ -32,6 +32,7 @@
                    background: transparent; border: 1px solid var(--accent); border-radius: 999px;
                    padding: 6px 16px; cursor: pointer; }
   button#editBtn:active { opacity: .7; }
+  .sync-status { margin: 8px 0 0; font-size: .75rem; color: var(--muted); }
 
   .scroller { display: flex; gap: 14px; overflow-x: auto; padding: 8px 16px 20px;
               scroll-snap-type: x mandatory; scroll-padding: 0 16px; }
@@ -93,6 +94,7 @@
     <span><i class="dot diego"></i>Diego</span>
   </div>
   <div class="toolbar"><button id="editBtn" type="button">✏️ Editar horarios</button></div>
+  <p class="sync-status" id="syncStatus">☁️ Conectando…</p>
 </header>
 
 <div class="scroller" id="scroller"></div>
@@ -100,7 +102,24 @@
 <h2 class="section-title">🏆 Partidos de fin de semana</h2>
 <div class="scroller" id="scrollerPartidos"></div>
 
-<script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBRV-8u1lGReVePvM_yGpkZmwRYFzEvjbg",
+    authDomain: "repowebsft.firebaseapp.com",
+    projectId: "repowebsft",
+    storageBucket: "repowebsft.firebasestorage.app",
+    messagingSenderId: "84158890650",
+    appId: "1:84158890650:web:0aec1222fd74a317f85523"
+  };
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getFirestore(firebaseApp);
+  const cloudDocRef = doc(db, 'basket', 'main');
+  const syncStatus = document.getElementById('syncStatus');
+  let applyingRemote = false;
+
   const STORAGE_KEY = 'horarios-basket';
   const STORAGE_KEY_PARTIDOS = 'horarios-basket-partidos';
 
@@ -135,6 +154,7 @@
 
   function saveSchedule() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule));
+    syncToCloud();
   }
 
   function mapsUrl(place) {
@@ -158,6 +178,14 @@
 
   function saveMatches() {
     localStorage.setItem(STORAGE_KEY_PARTIDOS, JSON.stringify(matchSchedule));
+    syncToCloud();
+  }
+
+  function syncToCloud() {
+    if (applyingRemote) return; // evita reenviar los datos que acabamos de recibir de la nube
+    setDoc(cloudDocRef, { schedule, matches: matchSchedule, updatedAt: Date.now() })
+      .then(() => { syncStatus.textContent = '☁️ Sincronizado'; })
+      .catch(() => { syncStatus.textContent = '📴 Sin conexión (guardado solo en este dispositivo)'; });
   }
 
   let schedule = loadSchedule();
@@ -353,6 +381,22 @@
 
   render(true);
   renderMatches(true);
+
+  onSnapshot(cloudDocRef, (snap) => {
+    if (!snap.exists()) {
+      syncToCloud();
+      syncStatus.textContent = '☁️ Sincronizado';
+      return;
+    }
+    const data = snap.data();
+    applyingRemote = true;
+    if (data.schedule) { schedule = data.schedule; localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule)); render(false); }
+    if (data.matches) { matchSchedule = data.matches; localStorage.setItem(STORAGE_KEY_PARTIDOS, JSON.stringify(matchSchedule)); renderMatches(false); }
+    applyingRemote = false;
+    syncStatus.textContent = '☁️ Sincronizado';
+  }, () => {
+    syncStatus.textContent = '📴 Sin conexión (guardado solo en este dispositivo)';
+  });
 </script>
 </body>
 </html>
