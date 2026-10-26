@@ -33,6 +33,9 @@
                    padding: 6px 16px; cursor: pointer; }
   button#editBtn:active { opacity: .7; }
   .sync-status { margin: 8px 0 0; font-size: .75rem; color: var(--muted); }
+  .auth-status { margin: 6px 0 0; font-size: .78rem; color: var(--muted); }
+  .auth-status button { font: inherit; font-size: .78rem; color: var(--accent); background: none;
+                         border: none; text-decoration: underline; cursor: pointer; padding: 0; }
 
   .scroller { display: flex; gap: 14px; overflow-x: auto; padding: 8px 16px 20px;
               scroll-snap-type: x mandatory; scroll-padding: 0 16px; }
@@ -93,7 +96,8 @@
     <span><i class="dot alba"></i>Alba</span>
     <span><i class="dot diego"></i>Diego</span>
   </div>
-  <div class="toolbar"><button id="editBtn" type="button">✏️ Editar horarios</button></div>
+  <div class="toolbar"><button id="editBtn" type="button">🔐 Iniciar sesión para editar</button></div>
+  <p class="auth-status" id="authStatus" hidden>Conectado como <span id="authEmail"></span> · <button type="button" id="logoutBtn">Salir</button></p>
   <p class="sync-status" id="syncStatus">☁️ Conectando…</p>
 </header>
 
@@ -105,6 +109,9 @@
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
   import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+  const ALLOWED_EDITORS = ['letalfi@gmail.com', 'familiatamayoaragon@gmail.com'];
 
   const firebaseConfig = {
     apiKey: "AIzaSyBRV-8u1lGReVePvM_yGpkZmwRYFzEvjbg",
@@ -116,9 +123,16 @@
   };
   const firebaseApp = initializeApp(firebaseConfig);
   const db = getFirestore(firebaseApp);
+  const auth = getAuth(firebaseApp);
+  const googleProvider = new GoogleAuthProvider();
   const cloudDocRef = doc(db, 'basket', 'main');
   const syncStatus = document.getElementById('syncStatus');
   let applyingRemote = false;
+  let currentUser = null;
+
+  function isAuthorized(user) {
+    return !!user && ALLOWED_EDITORS.includes(user.email);
+  }
 
   const STORAGE_KEY = 'horarios-basket';
   const STORAGE_KEY_PARTIDOS = 'horarios-basket-partidos';
@@ -374,9 +388,39 @@
     centerOrRestore(scroller, prevScroll, centerToday, d => Number(d.dataset.day) === today);
   }
 
-  document.getElementById('editBtn').addEventListener('click', (e) => {
+  const editBtn = document.getElementById('editBtn');
+  const authStatus = document.getElementById('authStatus');
+  const authEmail = document.getElementById('authEmail');
+
+  editBtn.addEventListener('click', async () => {
+    if (!isAuthorized(currentUser)) {
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        if (!isAuthorized(result.user)) {
+          alert('Esta cuenta no tiene permiso para editar los horarios.');
+          await signOut(auth);
+        }
+      } catch (e) { /* el usuario cerró el popup o falló el login: no hacemos nada */ }
+      return;
+    }
     const editing = document.body.classList.toggle('editing');
-    e.target.textContent = editing ? '✅ Guardar y salir' : '✏️ Editar horarios';
+    editBtn.textContent = editing ? '✅ Guardar y salir' : '✏️ Editar horarios';
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    document.body.classList.remove('editing');
+    if (isAuthorized(user)) {
+      editBtn.textContent = '✏️ Editar horarios';
+      authEmail.textContent = user.email;
+      authStatus.hidden = false;
+    } else {
+      editBtn.textContent = '🔐 Iniciar sesión para editar';
+      authStatus.hidden = true;
+      if (user) signOut(auth); // logueado pero no autorizado
+    }
   });
 
   render(true);
