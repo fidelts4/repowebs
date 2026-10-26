@@ -307,10 +307,14 @@
             input.addEventListener('change', () => {
               m[input.dataset.field] = input.value;
               if (input.dataset.field === 'who') div.className = `session ${input.value}`;
-              if (input.dataset.field === 'place') {
+              if (input.dataset.field === 'homeAway' && input.value === 'local') {
+                m.place = 'Polideportivo Juan de la Cierva, Getafe';
+                div.querySelector('.field-school').value = m.place;
+              }
+              if (input.dataset.field === 'place' || input.dataset.field === 'homeAway') {
                 const link = div.querySelector('.school-link');
-                link.href = mapsUrl(input.value);
-                link.textContent = `📍 ${input.value}`;
+                link.href = mapsUrl(m.place);
+                link.textContent = `📍 ${m.place}`;
               }
               saveMatches();
             });
@@ -329,7 +333,7 @@
       addBtn.className = 'add-btn';
       addBtn.textContent = '+ Añadir partido';
       addBtn.addEventListener('click', () => {
-        day.matches.push({ who: 'diego', convocatoria: '09:00', place: '', homeAway: 'local' });
+        day.matches.push({ who: 'diego', convocatoria: '09:00', place: 'Polideportivo Juan de la Cierva, Getafe', homeAway: 'local' });
         saveMatches();
         renderMatches(false);
       });
