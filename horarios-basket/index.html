@@ -227,6 +227,7 @@
         p.textContent = 'Alba y Diego descansan';
         section.appendChild(p);
       } else {
+        day.sessions.sort((a, b) => a.start.localeCompare(b.start));
         for (const s of day.sessions) {
           const div = document.createElement('div');
           div.className = `session ${s.who}`;
@@ -327,6 +328,7 @@
         p.textContent = 'Sin partido programado';
         section.appendChild(p);
       } else {
+        day.matches.sort((a, b) => a.convocatoria.localeCompare(b.convocatoria));
         for (const m of day.matches) {
           const div = document.createElement('div');
           div.className = `session ${m.who}`;
