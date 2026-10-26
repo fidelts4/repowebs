@@ -356,6 +356,10 @@
                 m.place = 'Pabellón Juan de la Cierva, Getafe';
                 div.querySelector('.field-school').value = m.place;
               }
+              if (input.dataset.field === 'homeAway' && input.value === 'visitante') {
+                m.place = '';
+                div.querySelector('.field-school').value = m.place;
+              }
               if (input.dataset.field === 'place' || input.dataset.field === 'homeAway') {
                 const link = div.querySelector('.school-link');
                 link.href = mapsUrl(m.place);
