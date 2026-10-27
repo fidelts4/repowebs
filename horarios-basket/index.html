@@ -88,6 +88,18 @@
   .home-away { display: inline-block; margin-top: 4px; }
   a.back { display: block; width: fit-content; margin-bottom: 8px; color: var(--muted); font-size: .85rem; text-decoration: none; }
   a.back:hover { color: var(--accent); }
+  .nav-chooser { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none;
+                 align-items: flex-end; justify-content: center; z-index: 50; }
+  .nav-chooser.open { display: flex; }
+  .nav-sheet { width: 100%; max-width: 420px; background: var(--card); color: var(--text);
+               border-radius: 16px 16px 0 0; padding: 18px 16px 24px; }
+  .nav-sheet h3 { margin: 0 0 4px; font-size: 1.1rem; }
+  .nav-sheet .nav-place { margin: 0 0 14px; color: var(--muted); font-size: .95rem; }
+  .nav-sheet a, .nav-sheet button { display: block; width: 100%; box-sizing: border-box; margin-top: 8px;
+               padding: 14px; font: inherit; font-size: 1.15rem; font-weight: 600; text-align: center;
+               color: var(--text); background: var(--bg); border: 1px solid var(--border);
+               border-radius: 10px; text-decoration: none; cursor: pointer; }
+  .nav-sheet button { color: var(--muted); font-weight: 500; }
 </style>
 </head>
 <body>
@@ -109,6 +121,15 @@
 <h2 class="section-title">🏆 Partidos de fin de semana</h2>
 <div class="scroller" id="scrollerPartidos"></div>
 
+<div class="nav-chooser" id="navChooser" role="dialog" aria-modal="true" aria-label="Elegir aplicación de navegación">
+  <div class="nav-sheet">
+    <h3>Abrir con…</h3>
+    <p class="nav-place" id="navPlace"></p>
+    <a id="navWaze" target="_blank" rel="noopener">🚗 Waze</a>
+    <a id="navGoogle" target="_blank" rel="noopener">🗺️ Google Maps</a>
+    <button type="button" id="navCancel">Cancelar</button>
+  </div>
+</div>
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
   import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
@@ -450,6 +471,26 @@
   }, () => {
     syncStatus.textContent = '📴 Sin conexión (guardado solo en este dispositivo)';
   });
+
+  // Al pulsar un destino se ofrece elegir entre Waze y Google Maps
+  const navChooser = document.getElementById('navChooser');
+  const wazeUrl = place => `https://waze.com/ul?q=${encodeURIComponent(place)}&navigate=yes`;
+  function closeChooser() { navChooser.classList.remove('open'); }
+  document.addEventListener('click', e => {
+    const link = e.target.closest('.school-link');
+    if (!link) return;
+    const place = link.textContent.replace(/^📍\s*/, '').trim();
+    if (!place) return;
+    e.preventDefault();
+    document.getElementById('navPlace').textContent = place;
+    document.getElementById('navWaze').href = wazeUrl(place);
+    document.getElementById('navGoogle').href = mapsUrl(place);
+    navChooser.classList.add('open');
+  });
+  navChooser.addEventListener('click', e => {
+    if (e.target === navChooser || e.target.id === 'navCancel' || e.target.closest('a')) closeChooser();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeChooser(); });
 </script>
 </body>
 </html>
