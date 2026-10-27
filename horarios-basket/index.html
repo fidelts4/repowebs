@@ -42,11 +42,11 @@
   .scroller::-webkit-scrollbar { height: 6px; }
   .scroller::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  .day { flex: 0 0 85%; max-width: 320px; scroll-snap-align: center;
+  .day { flex: 0 0 85%; max-width: 400px; scroll-snap-align: center;
          background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
   .day.today { border-color: var(--accent); border-width: 2px; }
-  .day h2 { margin: 0 0 14px; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between; }
-  .today-badge { font-size: .7rem; font-weight: 600; color: var(--accent);
+  .day h2 { margin: 0 0 14px; font-size: 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+  .today-badge { font-size: .9rem; font-weight: 600; color: var(--accent);
                  border: 1px solid var(--accent); border-radius: 999px; padding: 2px 8px; }
 
   .session { border-left: 3px solid var(--border); padding: 4px 0 4px 10px; margin-bottom: 10px; }
@@ -54,37 +54,37 @@
   .session.alba { border-color: var(--alba); }
   .session.diego { border-color: var(--diego); }
   .session .row-top { display: flex; align-items: center; justify-content: space-between; }
-  .session .who { font-weight: 600; font-size: .9rem; }
-  .session .time { font-size: .95rem; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
-  .session .school-link { color: var(--muted); font-size: .8rem; margin-top: 2px; display: inline-block; text-decoration: none; }
+  .session .who { font-weight: 600; font-size: 1.3rem; }
+  .session .time { font-size: 1.45rem; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+  .session .school-link { color: var(--muted); font-size: 1.15rem; margin-top: 2px; display: inline-block; text-decoration: none; }
   .session .school-link:hover { text-decoration: underline; }
-  .rest { color: var(--muted); font-size: .85rem; font-style: italic; }
+  .rest { color: var(--muted); font-size: 1.15rem; font-style: italic; }
 
   /* Los campos solo son interactivos en modo edición; el resto del tiempo se ven como texto plano */
   .field-time, .field-who { font: inherit; color: var(--text); background: transparent;
                             border: 1px solid transparent; border-radius: 6px; padding: 1px 2px;
                             pointer-events: none; }
-  .field-who { font-weight: 600; font-size: .9rem; appearance: none; -webkit-appearance: none; }
+  .field-who { font-weight: 600; font-size: 1.3rem; appearance: none; -webkit-appearance: none; }
   body.editing .field-time, body.editing .field-who { border-color: var(--border); background: var(--bg); pointer-events: auto; }
 
-  .field-school { display: none; width: 100%; font: inherit; font-size: .8rem; color: var(--text);
+  .field-school { display: none; width: 100%; font: inherit; font-size: 1.15rem; color: var(--text);
                   background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
                   padding: 1px 4px; margin-top: 2px; }
   body.editing .field-school { display: block; }
   body.editing .school-link { display: none; }
 
   .del-btn { display: none; border: none; background: transparent; color: var(--muted);
-             font-size: .9rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+             font-size: 1.2rem; line-height: 1; cursor: pointer; padding: 0 2px; }
   .del-btn:hover { color: #dc2626; }
   body.editing .del-btn { display: inline-block; }
 
-  .add-btn { display: none; width: 100%; margin-top: 4px; padding: 8px; font: inherit; font-size: .82rem;
+  .add-btn { display: none; width: 100%; margin-top: 4px; padding: 8px; font: inherit; font-size: 1rem;
              font-weight: 600; color: var(--accent); background: transparent; border: 1px dashed var(--accent);
              border-radius: 8px; cursor: pointer; }
   body.editing .add-btn { display: block; }
 
   .section-title { padding: 0 16px; margin: 28px 0 8px; font-size: 1.05rem; text-align: center; }
-  .time .label { color: var(--muted); font-size: .78rem; margin-right: 2px; }
+  .time .label { color: var(--muted); font-size: 1.1rem; margin-right: 2px; }
   .home-away { display: inline-block; margin-top: 4px; }
   a.back { display: block; width: fit-content; margin-bottom: 8px; color: var(--muted); font-size: .85rem; text-decoration: none; }
   a.back:hover { color: var(--accent); }
