@@ -456,18 +456,34 @@
   render(true);
   renderMatches(true);
 
+  let pendingRemote = null;
+  const isEditingField = () => !!document.activeElement?.closest?.('.session') &&
+                               document.activeElement.matches('input, select');
+  function applyRemote(data) {
+    applyingRemote = true;
+    if (data.schedule) { schedule = data.schedule; localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule)); render(false); }
+    if (data.matches) { matchSchedule = data.matches; localStorage.setItem(STORAGE_KEY_PARTIDOS, JSON.stringify(matchSchedule)); renderMatches(false); }
+    applyingRemote = false;
+    syncStatus.textContent = '☁️ Sincronizado';
+  }
+  document.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (pendingRemote && !isEditingField()) { const d = pendingRemote; pendingRemote = null; applyRemote(d); }
+    }, 0);
+  });
+
   onSnapshot(cloudDocRef, (snap) => {
     if (!snap.exists()) {
       syncToCloud();
       syncStatus.textContent = '☁️ Sincronizado';
       return;
     }
+    if (snap.metadata.hasPendingWrites) return; // eco de nuestro propio cambio: no hace falta repintar
     const data = snap.data();
-    applyingRemote = true;
-    if (data.schedule) { schedule = data.schedule; localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule)); render(false); }
-    if (data.matches) { matchSchedule = data.matches; localStorage.setItem(STORAGE_KEY_PARTIDOS, JSON.stringify(matchSchedule)); renderMatches(false); }
-    applyingRemote = false;
-    syncStatus.textContent = '☁️ Sincronizado';
+    // Si el usuario está editando un campo (p. ej. con el selector de hora abierto), no repintamos:
+    // destruiría el campo y cerraría el selector antes de pulsar OK. Se aplica al salir del campo.
+    if (isEditingField()) { pendingRemote = data; return; }
+    applyRemote(data);
   }, () => {
     syncStatus.textContent = '📴 Sin conexión (guardado solo en este dispositivo)';
   });
