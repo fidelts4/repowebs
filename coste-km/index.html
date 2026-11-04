@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coste por trayecto</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #fff; --text: #1b2430; --muted: #66727f;
+    --accent: #0a7d5a; --border: #d8dee4; --fuel: #b45309; --ev: #0a7d5a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11161c; --card: #1a222b; --text: #e8edf2; --muted: #92a0ae;
+            --accent: #3ddc9a; --border: #2b3642; --fuel: #fbbf24; --ev: #3ddc9a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+         display: flex; justify-content: center; padding: 24px 16px; }
+  main { width: 100%; max-width: 440px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  p.sub { margin: 0 0 12px; color: var(--muted); font-size: .9rem; }
+  .card { background: var(--card); border: 1px solid var(--border);
+          border-radius: 14px; padding: 20px; margin-bottom: 14px; }
+  .card h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  label { display: block; font-weight: 600; font-size: .9rem; margin: 14px 0 4px; }
+  .card h2 + label, .card > label:first-child { margin-top: 0; }
+  .field { display: flex; align-items: center; gap: 8px; }
+  input { width: 100%; padding: 10px 12px; font-size: 1rem; color: var(--text);
+          background: transparent; border: 1px solid var(--border); border-radius: 8px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .unit { color: var(--muted); min-width: 64px; font-size: .85rem; }
+
+  .top input { font-size: 1.3rem; font-weight: 600; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .result { padding: 14px 10px; border-radius: 12px; text-align: center; border: 2px solid var(--border); }
+  .result.ev { border-color: var(--ev); }
+  .result.fuel { border-color: var(--fuel); }
+  .result .label { color: var(--muted); font-size: .85rem; }
+  .result .big { font-size: 1.9rem; font-weight: 700; line-height: 1.15; }
+  .result.ev .big { color: var(--ev); }
+  .result.fuel .big { color: var(--fuel); }
+  .result .small { color: var(--muted); font-size: .8rem; margin-top: 2px; }
+  .saving { margin-top: 12px; text-align: center; font-weight: 600; }
+  .details { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: .88rem; color: var(--muted); }
+  .details div { display: flex; justify-content: space-between; padding: 3px 0; }
+  .details b { color: var(--text); }
+
+  .toolbar { display: flex; justify-content: flex-start; margin: 4px 0 0; }
+  button#loginBtn { font: inherit; font-size: .85rem; font-weight: 600; color: var(--accent);
+                    background: transparent; border: 1px solid var(--accent); border-radius: 999px;
+                    padding: 6px 16px; cursor: pointer; }
+  button#loginBtn:active { opacity: .7; }
+  .sync-status { margin: 8px 0 16px; font-size: .75rem; color: var(--muted); }
+  .auth-status { margin: 6px 0 0; font-size: .78rem; color: var(--muted); }
+  .auth-status button { font: inherit; font-size: .78rem; color: var(--accent); background: none;
+                         border: none; text-decoration: underline; cursor: pointer; padding: 0; }
+  a.back { display: block; width: fit-content; margin-bottom: 12px; color: var(--muted); font-size: .85rem; text-decoration: none; }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="../">← Índice</a>
+  <h1>⛽⚡ Coste por trayecto</h1>
+  <p class="sub">Compara el coste de los km que recorres desde el 100 % hasta volver al % de batería restante, con electricidad o con gasolina.</p>
+  <div class="toolbar"><button id="loginBtn" type="button">🔐 Iniciar sesión para guardar</button></div>
+  <p class="auth-status" id="authStatus" hidden>Conectado como <span id="authEmail"></span> · <button type="button" id="logoutBtn">Salir</button></p>
+  <p class="sync-status" id="syncStatus">☁️ Conectando…</p>
+
+  <div class="card top">
+    <label for="batteryLeft">Batería restante</label>
+    <div class="field"><input id="batteryLeft" data-key="batteryLeft" type="number" inputmode="decimal" min="0" max="100" step="any"><span class="unit">%</span></div>
+    <label for="chargerPrice">Precio del cargador de electricidad</label>
+    <div class="field"><input id="chargerPrice" data-key="chargerPrice" type="number" inputmode="decimal" min="0" step="any"><span class="unit">€/kWh</span></div>
+    <label for="fuelPrice">Precio del litro de gasolina</label>
+    <div class="field"><input id="fuelPrice" data-key="fuelPrice" type="number" inputmode="decimal" min="0" step="any"><span class="unit">€/L</span></div>
+  </div>
+
+  <div class="card" aria-live="polite">
+    <div class="compare">
+      <div class="result ev"><div class="label">⚡ Electricidad</div><div class="big" id="costEv">–</div><div class="small" id="ev100">–</div></div>
+      <div class="result fuel"><div class="label">⛽ Gasolina</div><div class="big" id="costFuel">–</div><div class="small" id="fuel100">–</div></div>
+    </div>
+    <div class="saving" id="saving"></div>
+    <div class="details">
+      <div><span>Km desde el 100 % hasta volver al <span id="pctLabel">–</span></span><b id="km">–</b></div>
+      <div><span>Energía consumida en esos km</span><b id="kwh">–</b></div>
+      <div><span>Rendimiento</span><b id="kmPerKwh">–</b></div>
+      <div><span>Gasolina necesaria</span><b id="liters">–</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>⚡ Eléctrico</h2>
+    <label for="battery">Capacidad de la batería</label>
+    <div class="field"><input id="battery" data-key="battery" type="number" inputmode="decimal" min="0" step="any"><span class="unit">kWh</span></div>
+    <label for="fullRange">Autonomía con la batería al 100 %</label>
+    <div class="field"><input id="fullRange" data-key="fullRange" type="number" inputmode="decimal" min="0" step="any"><span class="unit">km</span></div>
+  </div>
+
+  <div class="card">
+    <h2>⛽ Gasolina</h2>
+    <label for="fuelUse">Consumo</label>
+    <div class="field"><input id="fuelUse" data-key="fuelUse" type="number" inputmode="decimal" min="0" step="any"><span class="unit">L/100 km</span></div>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+  const ALLOWED_EDITORS = ['letalfi@gmail.com', 'familiatamayoaragon@gmail.com'];
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBRV-8u1lGReVePvM_yGpkZmwRYFzEvjbg",
+    authDomain: "repowebsft.firebaseapp.com",
+    projectId: "repowebsft",
+    storageBucket: "repowebsft.firebasestorage.app",
+    messagingSenderId: "84158890650",
+    appId: "1:84158890650:web:0aec1222fd74a317f85523"
+  };
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getFirestore(firebaseApp);
+  const auth = getAuth(firebaseApp);
+  const googleProvider = new GoogleAuthProvider();
+  const cloudDocRef = doc(db, 'coste-km', 'main');
+  const syncStatus = document.getElementById('syncStatus');
+  let currentUser = null;
+
+  function isAuthorized(user) {
+    return !!user && ALLOWED_EDITORS.includes(user.email);
+  }
+
+  const STORAGE_KEY = 'coste-km';
+  const defaults = { batteryLeft: 20, chargerPrice: 0.45, battery: 60, fullRange: 360, fuelPrice: 1.55, fuelUse: 6.5 };
+
+  function loadValues() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return { ...defaults, ...JSON.parse(raw) };
+    } catch (e) { /* localStorage no disponible o datos corruptos: usar valores por defecto */ }
+    return { ...defaults };
+  }
+
+  let values = loadValues();
+  const inputs = [...document.querySelectorAll('input[data-key]')];
+
+  const eur = n => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+  const num = (n, d = 1) => n.toLocaleString('es-ES', { maximumFractionDigits: d });
+  const $ = id => document.getElementById(id);
+
+  function fillInputs() {
+    for (const input of inputs) input.value = values[input.dataset.key] ?? '';
+  }
+
+  function calculate() {
+    const { batteryLeft, chargerPrice, battery, fullRange, fuelPrice, fuelUse } = values;
+    // Km recorridos desde el 100 % hasta volver al % restante, y su coste con electricidad o con gasolina
+    const toCharge = Math.min(Math.max(100 - batteryLeft, 0), 100) / 100;
+    const kwh = battery * toCharge;
+    const km = fullRange * toCharge;
+    const kmPerKwh = battery > 0 ? fullRange / battery : NaN;
+    const costEv = kwh * chargerPrice;
+    const liters = km * fuelUse / 100;
+    const costFuel = liters * fuelPrice;
+    const ok = n => Number.isFinite(n);
+
+    $('costEv').textContent = ok(costEv) ? eur(costEv) : '–';
+    $('costFuel').textContent = ok(costFuel) ? eur(costFuel) : '–';
+    $('ev100').textContent = kmPerKwh > 0 ? `${eur(100 / kmPerKwh * chargerPrice)} / 100 km` : '–';
+    $('fuel100').textContent = ok(fuelUse * fuelPrice) ? `${eur(fuelUse * fuelPrice)} / 100 km` : '–';
+    $('kwh').textContent = ok(kwh) ? `${num(kwh)} kWh` : '–';
+    $('km').textContent = ok(km) ? `${num(km, 0)} km` : '–';
+    $('pctLabel').textContent = `${num(Math.min(Math.max(batteryLeft, 0), 100), 0)} %`;
+    $('kmPerKwh').textContent = ok(kmPerKwh) ? `${num(kmPerKwh)} km/kWh` : '–';
+    $('liters').textContent = ok(liters) ? `${num(liters)} L` : '–';
+
+    const saving = $('saving');
+    if (ok(costEv) && ok(costFuel) && km > 0) {
+      const diff = costFuel - costEv;
+      const cheaper = diff >= 0 ? 'eléctrico' : 'gasolina';
+      const pct = Math.max(costEv, costFuel) > 0 ? Math.abs(diff) / Math.max(costEv, costFuel) * 100 : 0;
+      saving.textContent = Math.abs(diff) < 0.005 ? 'Cuesta lo mismo' :
+        `Con ${cheaper} ahorras ${eur(Math.abs(diff))} (${num(pct, 0)} %)`;
+    } else {
+      saving.textContent = '';
+    }
+  }
+
+  function syncToCloud() {
+    if (!isAuthorized(currentUser)) return;
+    setDoc(cloudDocRef, { values, updatedAt: Date.now() })
+      .then(() => { syncStatus.textContent = '☁️ Sincronizado'; })
+      .catch(() => { syncStatus.textContent = '📴 Sin conexión (guardado solo en este dispositivo)'; });
+  }
+
+  let saveTimer = null;
+  for (const input of inputs) {
+    input.addEventListener('input', () => {
+      const n = parseFloat(input.value.replace(',', '.'));
+      values[input.dataset.key] = Number.isFinite(n) ? n : 0;
+      calculate();
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(values)); } catch (e) { /* sin localStorage */ }
+      // Se espera a que el usuario deje de teclear para no escribir en la nube en cada pulsación
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(syncToCloud, 800);
+    });
+  }
+
+  fillInputs();
+  calculate();
+
+  // Login: cualquiera puede calcular; solo los editores autorizados guardan los valores en la nube
+  const loginBtn = $('loginBtn');
+  const authStatus = $('authStatus');
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (isAuthorized(user)) {
+      loginBtn.hidden = true;
+      $('authEmail').textContent = user.email;
+      authStatus.hidden = false;
+    } else {
+      loginBtn.hidden = false;
+      authStatus.hidden = true;
+      if (user) signOut(auth); // logueado pero no autorizado
+    }
+  });
+  loginBtn.addEventListener('click', async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      if (!isAuthorized(result.user)) {
+        alert('Esta cuenta no tiene permiso para guardar los valores.');
+        await signOut(auth);
+      } else {
+        syncToCloud();
+      }
+    } catch (e) { /* el usuario cerró el popup o falló el login: no hacemos nada */ }
+  });
+  $('logoutBtn').addEventListener('click', () => signOut(auth));
+
+  let pendingRemote = null;
+  const isEditingField = () => inputs.includes(document.activeElement);
+  function applyRemote(data) {
+    values = { ...defaults, ...data.values };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(values)); } catch (e) { /* sin localStorage */ }
+    fillInputs();
+    calculate();
+  }
+  document.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (pendingRemote && !isEditingField()) { const d = pendingRemote; pendingRemote = null; applyRemote(d); }
+    }, 0);
+  });
+
+  onSnapshot(cloudDocRef, (snap) => {
+    syncStatus.textContent = '☁️ Sincronizado';
+    if (!snap.exists() || snap.metadata.hasPendingWrites) return;
+    const data = snap.data();
+    if (!data.values) return;
+    // No se pisa el campo que el usuario está escribiendo; se aplica al salir de él
+    if (isEditingField()) { pendingRemote = data; return; }
+    applyRemote(data);
+  }, () => {
+    syncStatus.textContent = '📴 Sin conexión (guardado solo en este dispositivo)';
+  });
+</script>
+</body>
+</html>
