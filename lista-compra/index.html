@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lista de la compra</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #fff; --text: #1b2430; --muted: #66727f;
+    --accent: #0a7d5a; --border: #d8dee4; --danger: #dc2626;
+    --carrefour: #1e5bc6; --mercadona: #00843d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11161c; --card: #1a222b; --text: #e8edf2; --muted: #92a0ae;
+            --accent: #3ddc9a; --border: #2b3642; --danger: #f87171;
+            --carrefour: #6b9bf2; --mercadona: #3fbf7a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 17px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+         display: flex; justify-content: center; padding: 24px 16px 40px; }
+  main { width: 100%; max-width: 480px; }
+  h1 { font-size: 1.45rem; margin: 0 0 4px; }
+  p.sub { margin: 0 0 8px; color: var(--muted); font-size: .9rem; }
+  a.back { display: block; width: fit-content; margin-bottom: 12px; color: var(--muted); font-size: .85rem; text-decoration: none; }
+  a.back:hover { color: var(--accent); }
+
+  .toolbar { display: flex; margin: 4px 0 0; }
+  button#loginBtn { font: inherit; font-size: .85rem; font-weight: 600; color: var(--accent);
+                    background: transparent; border: 1px solid var(--accent); border-radius: 999px;
+                    padding: 6px 16px; cursor: pointer; }
+  .sync-status { margin: 8px 0 14px; font-size: .75rem; color: var(--muted); }
+  .auth-status { margin: 6px 0 0; font-size: .78rem; color: var(--muted); }
+  .auth-status button { font: inherit; font-size: .78rem; color: var(--accent); background: none;
+                         border: none; text-decoration: underline; cursor: pointer; padding: 0; }
+
+  /* Pestañas por supermercado */
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .tab { font: inherit; font-weight: 700; padding: 12px 8px; border-radius: 12px; cursor: pointer;
+         background: var(--card); color: var(--muted); border: 2px solid var(--border); }
+  .tab .count { display: inline-block; min-width: 1.6em; margin-left: 6px; padding: 0 6px; border-radius: 999px;
+                font-size: .8rem; background: var(--bg); color: var(--muted); }
+  .tab[data-store="carrefour"].active { border-color: var(--carrefour); color: var(--carrefour); }
+  .tab[data-store="mercadona"].active { border-color: var(--mercadona); color: var(--mercadona); }
+
+  /* Buscador / añadir */
+  .search { position: relative; margin-bottom: 14px; }
+  .search form { display: flex; gap: 8px; }
+  .search input { flex: 1; min-width: 0; padding: 12px 14px; font: inherit; color: var(--text);
+                  background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .search button[type="submit"] { font: inherit; font-weight: 700; padding: 0 16px; border-radius: 10px; cursor: pointer;
+                                  color: #fff; background: var(--accent); border: none; }
+  .suggestions { list-style: none; margin: 6px 0 0; padding: 6px; background: var(--card);
+                 border: 1px solid var(--border); border-radius: 12px; }
+  .suggestions[hidden] { display: none; }
+  .suggestions .title { padding: 4px 8px; font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .suggestions li.item { display: flex; align-items: center; gap: 6px; }
+  .suggestions .pick { flex: 1; text-align: left; font: inherit; padding: 10px 8px; border: none; border-radius: 8px;
+                       background: transparent; color: var(--text); cursor: pointer; }
+  .suggestions .pick:hover, .suggestions .pick:focus { background: var(--bg); outline: none; }
+  .suggestions .pick .in-list { color: var(--muted); font-size: .85rem; }
+  .suggestions .forget { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 6px 8px; }
+  .suggestions .forget:hover { color: var(--danger); }
+  .suggestions .empty { padding: 8px; color: var(--muted); font-size: .9rem; }
+
+  /* Lista */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 6px 14px; }
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .list li:last-child { border-bottom: none; }
+  .list input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
+  .list .name { flex: 1; font-size: 1.1rem; word-break: break-word; }
+  .list li.done .name { text-decoration: line-through; color: var(--muted); }
+  .list .del { border: none; background: transparent; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 4px 6px; }
+  .list .del:hover { color: var(--danger); }
+  .section-label { margin: 18px 4px 6px; font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+                   display: flex; justify-content: space-between; align-items: center; }
+  .section-label button { font: inherit; font-size: .8rem; text-transform: none; letter-spacing: 0; color: var(--danger);
+                          background: none; border: none; cursor: pointer; padding: 0; }
+  .empty-list { padding: 18px 4px; text-align: center; color: var(--muted); }
+
+  /* Sin permiso de edición todo se ve, pero no se puede tocar */
+  body:not(.can-edit) .search, body:not(.can-edit) .del, body:not(.can-edit) .section-label button { display: none; }
+  body:not(.can-edit) .list input[type="checkbox"] { pointer-events: none; }
+  .readonly-note { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; font-size: .88rem;
+                   color: var(--muted); background: var(--card); border: 1px dashed var(--border); }
+  body.can-edit .readonly-note { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="../">← Índice</a>
+  <h1>🛒 Lista de la compra</h1>
+  <p class="sub">Lista compartida por supermercado.</p>
+  <div class="toolbar"><button id="loginBtn" type="button">🔐 Iniciar sesión para editar</button></div>
+  <p class="auth-status" id="authStatus" hidden>Conectado como <span id="authEmail"></span> · <button type="button" id="logoutBtn">Salir</button></p>
+  <p class="sync-status" id="syncStatus">☁️ Conectando…</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" type="button" role="tab" data-store="mercadona">Mercadona<span class="count" id="count-mercadona">0</span></button>
+    <button class="tab" type="button" role="tab" data-store="carrefour">Carrefour<span class="count" id="count-carrefour">0</span></button>
+  </div>
+
+  <p class="readonly-note">Inicia sesión con una cuenta autorizada para añadir o quitar productos.</p>
+
+  <div class="search">
+    <form id="addForm" autocomplete="off">
+      <input id="q" type="search" placeholder="Buscar o añadir producto…" aria-label="Buscar o añadir producto" enterkeyhint="done">
+      <button type="submit">Añadir</button>
+    </form>
+    <ul class="suggestions" id="suggestions" hidden></ul>
+  </div>
+
+  <div class="card"><ul class="list" id="pending"></ul></div>
+  <div id="doneBlock" hidden>
+    <div class="section-label"><span>En el carro</span><button type="button" id="clearDone">Quitar comprados</button></div>
+    <div class="card"><ul class="list" id="done"></ul></div>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getFirestore, doc, setDoc, updateDoc, deleteField, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+  const ALLOWED_EDITORS = ['letalfi@gmail.com', 'familiatamayoaragon@gmail.com'];
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBRV-8u1lGReVePvM_yGpkZmwRYFzEvjbg",
+    authDomain: "repowebsft.firebaseapp.com",
+    projectId: "repowebsft",
+    storageBucket: "repowebsft.firebasestorage.app",
+    messagingSenderId: "84158890650",
+    appId: "1:84158890650:web:0aec1222fd74a317f85523"
+  };
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getFirestore(firebaseApp);
+  const auth = getAuth(firebaseApp);
+  const googleProvider = new GoogleAuthProvider();
+  const cloudDocRef = doc(db, 'compra', 'main');
+  const syncStatus = document.getElementById('syncStatus');
+  let currentUser = null;
+
+  function isAuthorized(user) {
+    return !!user && ALLOWED_EDITORS.includes(user.email);
+  }
+
+  const STORAGE_KEY = 'lista-compra';
+  const STORAGE_KEY_TAB = 'lista-compra-tab';
+  const STORES = ['mercadona', 'carrefour'];
+  const MAX_SUGGESTIONS = 8;
+
+  // items: { id: { name, store, done, addedAt } } · recent: { clave: { name, lastUsed } }
+  // Se guardan como mapas para que cada cambio toque solo su campo y no se pisen ediciones simultáneas
+  let data = loadLocal();
+  let store = loadTab();
+
+  function loadLocal() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return { items: {}, recent: {}, ...JSON.parse(raw) };
+    } catch (e) { /* localStorage no disponible o datos corruptos */ }
+    return { items: {}, recent: {} };
+  }
+  function saveLocal() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* sin localStorage */ }
+  }
+  function loadTab() {
+    try { const t = localStorage.getItem(STORAGE_KEY_TAB); if (STORES.includes(t)) return t; } catch (e) { /* sin localStorage */ }
+    return STORES[0];
+  }
+
+  // Clave sin mayúsculas ni tildes para buscar y para no duplicar recientes
+  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const recentKey = name => norm(name).replace(/[.\/\[\]*~`]/g, '_');
+  const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const $ = id => document.getElementById(id);
+
+  function cloudWrite(promise) {
+    promise
+      .then(() => { syncStatus.textContent = '☁️ Sincronizado'; })
+      .catch(() => { syncStatus.textContent = '📴 Sin conexión (cambios guardados solo en este dispositivo)'; });
+  }
+
+  function itemsOf(s) {
+    return Object.entries(data.items).filter(([, it]) => it.store === s);
+  }
+  function inCurrentList(name) {
+    const k = norm(name);
+    return itemsOf(store).some(([, it]) => !it.done && norm(it.name) === k);
+  }
+
+  // ---- Acciones ----
+  function addItem(rawName) {
+    const name = capitalize(rawName.trim().replace(/\s+/g, ' '));
+    if (!name || !isAuthorized(currentUser)) return;
+    const rKey = recentKey(name);
+    const recent = { name, lastUsed: Date.now() };
+    data.recent[rKey] = recent;
+    if (inCurrentList(name)) { saveLocal(); render(); return; } // ya está pendiente en esta lista
+    const id = newId();
+    const item = { name, store, done: false, addedAt: Date.now() };
+    data.items[id] = item;
+    saveLocal();
+    render();
+    cloudWrite(setDoc(cloudDocRef, { items: { [id]: item }, recent: { [rKey]: recent } }, { merge: true }));
+  }
+  function toggleItem(id, done) {
+    if (!data.items[id]) return;
+    data.items[id].done = done;
+    saveLocal();
+    render();
+    cloudWrite(updateDoc(cloudDocRef, { [`items.${id}.done`]: done }));
+  }
+  function removeItems(ids) {
+    if (!ids.length) return;
+    const changes = {};
+    for (const id of ids) { delete data.items[id]; changes[`items.${id}`] = deleteField(); }
+    saveLocal();
+    render();
+    cloudWrite(updateDoc(cloudDocRef, changes));
+  }
+  function forgetRecent(key) {
+    delete data.recent[key];
+    saveLocal();
+    renderSuggestions();
+    cloudWrite(updateDoc(cloudDocRef, { [`recent.${key}`]: deleteField() }));
+  }
+
+  // ---- Pintado ----
+  function render() {
+    for (const s of STORES) $(`count-${s}`).textContent = itemsOf(s).filter(([, it]) => !it.done).length;
+    document.querySelectorAll('.tab').forEach(t => {
+      const active = t.dataset.store === store;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active);
+    });
+
+    const list = itemsOf(store).sort(([, a], [, b]) => a.addedAt - b.addedAt);
+    const pending = list.filter(([, it]) => !it.done);
+    const done = list.filter(([, it]) => it.done);
+    fillList($('pending'), pending);
+    fillList($('done'), done);
+    if (!pending.length) $('pending').innerHTML = '<li class="empty-list">La lista está vacía</li>';
+    $('doneBlock').hidden = !done.length;
+    if (document.activeElement === $('q')) renderSuggestions();
+  }
+
+  function fillList(ul, entries) {
+    ul.innerHTML = '';
+    for (const [id, it] of entries) {
+      const li = document.createElement('li');
+      if (it.done) li.className = 'done';
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.checked = it.done;
+      check.setAttribute('aria-label', `Marcar ${it.name} como comprado`);
+      check.addEventListener('change', () => toggleItem(id, check.checked));
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = it.name;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'del';
+      del.title = 'Eliminar';
+      del.textContent = '✕';
+      del.addEventListener('click', () => removeItems([id]));
+      li.append(check, name, del);
+      ul.append(li);
+    }
+  }
+
+  function renderSuggestions() {
+    const ul = $('suggestions');
+    const q = norm($('q').value);
+    const recent = Object.entries(data.recent)
+      .filter(([, r]) => !q || norm(r.name).includes(q))
+      .sort(([, a], [, b]) => b.lastUsed - a.lastUsed)
+      .slice(0, MAX_SUGGESTIONS);
+
+    ul.innerHTML = '';
+    const title = document.createElement('li');
+    title.className = 'title';
+    title.textContent = q ? 'Productos recientes que coinciden' : 'Productos recientes';
+    ul.append(title);
+
+    if (!recent.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = q ? 'Ninguno coincide. Pulsa «Añadir» para crearlo.' : 'Aún no hay productos recientes.';
+      ul.append(li);
+    }
+    for (const [key, r] of recent) {
+      const li = document.createElement('li');
+      li.className = 'item';
+      const pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'pick';
+      pick.textContent = r.name;
+      if (inCurrentList(r.name)) {
+        const tag = document.createElement('span');
+        tag.className = 'in-list';
+        tag.textContent = ' · ya en la lista';
+        pick.append(tag);
+      }
+      // mousedown en vez de click: así no se pierde el foco del buscador antes de añadir
+      pick.addEventListener('mousedown', e => e.preventDefault());
+      pick.addEventListener('click', () => { addItem(r.name); $('q').value = ''; renderSuggestions(); });
+      const forget = document.createElement('button');
+      forget.type = 'button';
+      forget.className = 'forget';
+      forget.title = 'Quitar de recientes';
+      forget.textContent = '✕';
+      forget.addEventListener('mousedown', e => e.preventDefault());
+      forget.addEventListener('click', () => forgetRecent(key));
+      li.append(pick, forget);
+      ul.append(li);
+    }
+    ul.hidden = false;
+  }
+
+  // ---- Eventos ----
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    store = t.dataset.store;
+    try { localStorage.setItem(STORAGE_KEY_TAB, store); } catch (e) { /* sin localStorage */ }
+    render();
+  }));
+
+  const q = $('q');
+  q.addEventListener('focus', renderSuggestions);
+  q.addEventListener('input', renderSuggestions);
+  q.addEventListener('blur', () => { $('suggestions').hidden = true; });
+  q.addEventListener('keydown', e => { if (e.key === 'Escape') q.blur(); });
+  $('addForm').addEventListener('submit', e => {
+    e.preventDefault();
+    addItem(q.value);
+    q.value = '';
+    renderSuggestions();
+  });
+  $('clearDone').addEventListener('click', () => {
+    removeItems(itemsOf(store).filter(([, it]) => it.done).map(([id]) => id));
+  });
+
+  render();
+
+  // ---- Sesión y nube ----
+  // La lista solo la pueden leer y editar los usuarios autorizados; sin sesión se ve la última copia del dispositivo
+  let unsubscribe = null;
+  function listen() {
+    if (unsubscribe) unsubscribe();
+    unsubscribe = onSnapshot(cloudDocRef, (snap) => {
+      syncStatus.textContent = '☁️ Sincronizado';
+      if (snap.metadata.hasPendingWrites) return; // eco de nuestro propio cambio
+      const remote = snap.exists() ? snap.data() : {};
+      data = { items: remote.items || {}, recent: remote.recent || {} };
+      saveLocal();
+      render();
+    }, () => {
+      syncStatus.textContent = isAuthorized(currentUser)
+        ? '📴 Sin conexión (mostrando la copia de este dispositivo)'
+        : '🔒 Inicia sesión para ver la lista compartida';
+    });
+  }
+
+  const loginBtn = $('loginBtn');
+  const authStatus = $('authStatus');
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    const ok = isAuthorized(user);
+    document.body.classList.toggle('can-edit', ok);
+    loginBtn.hidden = ok;
+    authStatus.hidden = !ok;
+    if (ok) $('authEmail').textContent = user.email;
+    else if (user) signOut(auth); // logueado pero no autorizado
+    listen();
+  });
+  loginBtn.addEventListener('click', async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      if (!isAuthorized(result.user)) {
+        alert('Esta cuenta no tiene permiso para editar la lista.');
+        await signOut(auth);
+      }
+    } catch (e) { /* el usuario cerró el popup o falló el login: no hacemos nada */ }
+  });
+  $('logoutBtn').addEventListener('click', () => signOut(auth));
+</script>
+</body>
+</html>
