@@ -51,6 +51,10 @@
   .tab.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .tab.active .count { background: var(--on-accent); color: var(--accent); }
 
+  /* Modo: añadiendo (recientes arriba) o comprando (lista arriba) */
+  .flow { display: flex; flex-direction: column; }
+  body[data-mode="shop"] .flow .search { order: 2; margin: 14px 0 0; }
+
   /* Buscador / añadir */
   .search { position: relative; margin-bottom: 14px; }
   .search form { display: flex; gap: 8px; }
@@ -134,6 +138,7 @@
 
   <p class="readonly-note">Inicia sesión con una cuenta autorizada para añadir o quitar productos.</p>
 
+  <div class="flow">
   <div class="search">
     <form id="addForm" autocomplete="off">
       <input id="q" type="search" placeholder="Buscar o añadir producto…" aria-label="Buscar o añadir producto" enterkeyhint="done">
@@ -146,6 +151,7 @@
   <div id="doneBlock" hidden>
     <div class="section-label"><span>En el carro</span><button type="button" id="finishBtn">✔ Terminar compra</button></div>
     <div class="card"><ul class="list" id="done"></ul></div>
+  </div>
   </div>
   <div id="historyBlock" hidden>
     <div class="section-label"><span>Compras anteriores</span></div>
@@ -182,6 +188,7 @@
 
   const STORAGE_KEY = 'lista-compra';
   const STORAGE_KEY_TAB = 'lista-compra-tab';
+  const STORAGE_KEY_MODE = 'lista-compra-modo';
   const STORES = ['mercadona', 'carrefour'];
   const MAX_SUGGESTIONS = 100;
   const MAX_HISTORY = 20;
@@ -191,6 +198,7 @@
   // Se guardan como mapas para que cada cambio toque solo su campo y no se pisen ediciones simultáneas
   let data = loadLocal();
   let store = loadTab();
+  let mode = loadMode();
 
   function loadLocal() {
     try {
@@ -201,6 +209,10 @@
   }
   function saveLocal() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* sin localStorage */ }
+  }
+  function loadMode() {
+    try { if (localStorage.getItem(STORAGE_KEY_MODE) === 'shop') return 'shop'; } catch (e) { /* sin localStorage */ }
+    return 'add';
   }
   function loadTab() {
     try { const t = localStorage.getItem(STORAGE_KEY_TAB); if (STORES.includes(t)) return t; } catch (e) { /* sin localStorage */ }
@@ -323,7 +335,10 @@
     if (!pending.length) $('pending').innerHTML = '<li class="empty-list">La lista está vacía</li>';
     $('doneBlock').hidden = !done.length;
     renderHistory();
+    document.body.dataset.mode = mode;
+    // Los recientes solo se ven mientras se usa el buscador
     if (document.activeElement === $('q')) renderSuggestions();
+    else $('suggestions').hidden = true;
   }
 
   const dateFmt = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
@@ -387,7 +402,10 @@
       check.type = 'checkbox';
       check.checked = it.done;
       check.setAttribute('aria-label', `Marcar ${it.name} como comprado`);
-      check.addEventListener('change', () => toggleItem(id, check.checked));
+      check.addEventListener('change', () => {
+        toggleItem(id, check.checked);
+        setMode('shop');
+      });
       const name = document.createElement('span');
       name.className = 'name';
       name.textContent = it.name;
@@ -458,15 +476,32 @@
     render();
   }));
 
+  // El modo cambia solo: al marcar algo en el carro pasa a «Comprando» y al buscar pasa a «Añadiendo»
+  function setMode(m) {
+    if (mode === m) return;
+    mode = m;
+    try { localStorage.setItem(STORAGE_KEY_MODE, mode); } catch (e) { /* sin localStorage */ }
+    render();
+  }
+
   const q = $('q');
-  q.addEventListener('focus', renderSuggestions);
+  q.addEventListener('focus', () => {
+    if (mode !== 'add') {
+      setMode('add');
+      q.scrollIntoView({ block: 'center', behavior: 'smooth' }); // el buscador acaba de subir arriba
+    }
+    renderSuggestions();
+  });
   q.addEventListener('input', renderSuggestions);
   q.addEventListener('blur', () => { $('suggestions').hidden = true; });
   q.addEventListener('keydown', e => { if (e.key === 'Escape') q.blur(); });
   $('addForm').addEventListener('submit', e => {
     e.preventDefault();
-    addItem(q.value);
+    // Con la caja vacía, «Añadir» abre el buscador con los recientes; con texto, lo añade y deja seguir escribiendo
+    if (q.value.trim()) addItem(q.value);
     q.value = '';
+    q.focus();
+    setMode('add');
     renderSuggestions();
   });
   $('finishBtn').addEventListener('click', finishShopping);
