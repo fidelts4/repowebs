@@ -60,9 +60,10 @@
   .search button[type="submit"] { font: inherit; font-weight: 700; padding: 0 16px; border-radius: 10px; cursor: pointer;
                                   color: var(--on-accent); background: var(--accent); border: none; }
   .suggestions { list-style: none; margin: 6px 0 0; padding: 6px; background: var(--card);
-                 border: 1px solid var(--accent-border); border-radius: 12px; }
+                 border: 1px solid var(--accent-border); border-radius: 12px;
+                 max-height: min(50vh, 360px); overflow-y: auto; overscroll-behavior: contain; }
   .suggestions[hidden] { display: none; }
-  .suggestions .title { padding: 4px 8px; font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .suggestions .title { position: sticky; top: -6px; z-index: 1; background: var(--card); padding: 4px 8px; font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
   .suggestions li.item { display: flex; align-items: center; gap: 6px; }
   .suggestions .pick { flex: 1; text-align: left; font: inherit; padding: 10px 8px; border: none; border-radius: 8px;
                        background: transparent; color: var(--text); cursor: pointer; }
@@ -182,7 +183,7 @@
   const STORAGE_KEY = 'lista-compra';
   const STORAGE_KEY_TAB = 'lista-compra-tab';
   const STORES = ['mercadona', 'carrefour'];
-  const MAX_SUGGESTIONS = 8;
+  const MAX_SUGGESTIONS = 100;
   const MAX_HISTORY = 20;
 
   // items: { id: { name, store, done, addedAt } } · recent: { clave: { name, lastUsed } }
@@ -213,10 +214,15 @@
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const $ = id => document.getElementById(id);
 
+  const DENIED_MSG = '⚠️ La nube rechaza el acceso: falta la regla de Firestore para «compra». Los cambios se guardan solo en este dispositivo';
+  function cloudError(e) {
+    syncStatus.textContent = e?.code === 'permission-denied'
+      ? DENIED_MSG : '📴 Sin conexión (cambios guardados solo en este dispositivo)';
+  }
   function cloudWrite(promise) {
     promise
       .then(() => { syncStatus.textContent = '☁️ Sincronizado'; })
-      .catch(() => { syncStatus.textContent = '📴 Sin conexión (cambios guardados solo en este dispositivo)'; });
+      .catch(cloudError);
   }
 
   function historyOf(s) {
@@ -475,14 +481,18 @@
     unsubscribe = onSnapshot(cloudDocRef, (snap) => {
       syncStatus.textContent = '☁️ Sincronizado';
       if (snap.metadata.hasPendingWrites) return; // eco de nuestro propio cambio
-      const remote = snap.exists() ? snap.data() : {};
+      if (!snap.exists()) {
+        // Primera vez en la nube: se sube lo que hubiera en este dispositivo para no perderlo
+        if (isAuthorized(currentUser)) cloudWrite(setDoc(cloudDocRef, data));
+        return;
+      }
+      const remote = snap.data();
       data = { items: remote.items || {}, recent: remote.recent || {}, history: remote.history || {} };
       saveLocal();
       render();
-    }, () => {
-      syncStatus.textContent = isAuthorized(currentUser)
-        ? '📴 Sin conexión (mostrando la copia de este dispositivo)'
-        : '🔒 Inicia sesión para ver la lista compartida';
+    }, (e) => {
+      if (!isAuthorized(currentUser)) syncStatus.textContent = '🔒 Inicia sesión para ver la lista compartida';
+      else cloudError(e);
     });
   }
 
