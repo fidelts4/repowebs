@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lista de tareas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: una columna central. Arriba el selector Compartidas/Personal y las listas; debajo, tareas abiertas, validadas y el histórico. */
+:root{
+  --bg:#f3f4f8; --surface:#ffffff; --ink:#171b2a; --muted:#5f677c; --line:#dfe2ec;
+  --accent:#4350c9; --accent-ink:#ffffff; --accent-soft:#e9ebfb;
+  --ok:#17795a; --ok-soft:#e2f4ee; --warn:#a15c07; --danger:#b3261e;
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10131c; --surface:#181c28; --ink:#e8eaf3; --muted:#9aa1b6; --line:#2a2f40;
+  --accent:#8b95f5; --accent-ink:#10132b; --accent-soft:#23284a;
+  --ok:#5fd1a8; --ok-soft:#173228; --warn:#f0b35c; --danger:#f2867e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10131c; --surface:#181c28; --ink:#e8eaf3; --muted:#9aa1b6; --line:#2a2f40;
+  --accent:#8b95f5; --accent-ink:#10132b; --accent-soft:#23284a;
+  --ok:#5fd1a8; --ok-soft:#173228; --warn:#f0b35c; --danger:#f2867e; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);
+  padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:8px 20px}
+h1{font:700 clamp(26px,5vw,34px)/1.05 var(--f-display);margin:0}
+.status{font-size:13px;color:var(--muted)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.seg{display:inline-grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;width:100%;max-width:340px}
+.seg button{border:0;background:none;padding:9px 12px;border-radius:7px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:disabled{opacity:.45;cursor:default}
+
+.tabs{display:flex;flex-wrap:wrap;gap:8px}
+.tab{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-weight:500}
+.tab[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tab.ghost{border-style:dashed;color:var(--muted)}
+.tabs input{width:180px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 16px 4px}
+.card-h h2{font:700 20px/1.2 var(--f-display);margin:0;min-width:0;overflow-wrap:anywhere}
+.card-h .note{font-size:13px;color:var(--muted)}
+.linkbtn{border:0;background:none;color:var(--accent);font-weight:600;padding:4px 6px;font-size:13px}
+.add{display:flex;gap:8px;padding:12px 16px}
+input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0;flex:1;width:100%}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+
+ul.items{list-style:none;margin:0;padding:0}
+.item{display:flex;align-items:flex-start;gap:12px;padding:11px 16px;border-top:1px solid var(--line)}
+.check{flex:none;width:26px;height:26px;margin-top:1px;border-radius:50%;border:2px solid var(--muted);background:none;display:grid;place-items:center;font-size:14px;line-height:1;color:var(--accent-ink);padding:0}
+.check:hover:not(:disabled){border-color:var(--ok)}
+.check:disabled{cursor:default}
+.item.done .check{background:var(--ok);border-color:var(--ok)}
+.body{flex:1;min-width:0}
+.txt{all:unset;box-sizing:border-box;display:block;width:100%;cursor:text;overflow-wrap:anywhere}
+.txt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.item.done .txt{color:var(--muted);text-decoration:line-through}
+.meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+.item.done .meta{color:var(--ok)}
+.del{border:0;background:none;color:var(--muted);padding:4px 8px;border-radius:6px;font-size:13px}
+.del:hover{color:var(--danger)}
+.del.armed{color:var(--danger);font-weight:600}
+.empty{padding:20px 16px 24px;color:var(--muted);border-top:1px solid var(--line)}
+.sect{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid var(--line);background:var(--bg);border-radius:0}
+.sect span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card>:last-child{border-bottom-left-radius:12px;border-bottom-right-radius:12px}
+
+.hist{list-style:none;margin:0;padding:0}
+.hist li{display:flex;gap:10px;padding:9px 16px;border-top:1px solid var(--line);font-size:14px}
+.tag{flex:none;font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 9px;height:fit-content;margin-top:2px;background:var(--accent-soft);color:var(--accent)}
+.tag.validó{background:var(--ok-soft);color:var(--ok)}
+.tag.eliminó{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger)}
+.tag.reabrió{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.hist .what{min-width:0;overflow-wrap:anywhere}
+.hist time{display:block;font-size:12.5px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:30;max-width:calc(100% - 32px)}
+.back{color:var(--muted);text-decoration:none;font-size:14px;align-self:flex-start}
+.back:hover{color:var(--accent)}
+.authbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.authbar .who{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="../">← Índice</a>
+  <header>
+    <h1>Lista de tareas</h1>
+    <div class="status" id="status" role="status">Conectando…</div>
+  </header>
+  <div class="authbar"><button class="btn primary" id="loginBtn" type="button">🔐 Iniciar sesión para editar</button><span class="who" id="who" hidden></span><button class="linkbtn" id="logoutBtn" type="button" hidden>Salir</button></div>
+  <div class="seg" id="seg" role="group" aria-label="Tipo de lista"></div>
+  <div class="tabs" id="tabs"></div>
+  <section class="card" id="card" aria-live="polite"></section>
+  <section class="card" id="histcard"></section>
+</div>
+<div id="toast" class="toast" hidden role="alert"></div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getFirestore, doc, collection, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  const ROOT = 'tareas/main/';
+  const ALLOWED_EDITORS = ['letalfi@gmail.com', 'familiatamayoaragon@gmail.com'];
+  const firebaseApp = initializeApp({
+    apiKey: "AIzaSyBRV-8u1lGReVePvM_yGpkZmwRYFzEvjbg",
+    authDomain: "repowebsft.firebaseapp.com",
+    projectId: "repowebsft",
+    storageBucket: "repowebsft.firebasestorage.app",
+    messagingSenderId: "84158890650",
+    appId: "1:84158890650:web:0aec1222fd74a317f85523"
+  });
+  const fs = getFirestore(firebaseApp);
+  const auth = getAuth(firebaseApp);
+
+  // Adaptador mínimo: expone doc/collection/set/update/delete/onSnapshot/orderBy/limit sobre Firestore
+  function docRef(p) { const r = doc(fs, p); return {
+    id: r.id, path: p,
+    set: d => setDoc(r, d), update: d => updateDoc(r, d), delete: () => deleteDoc(r),
+    onSnapshot: (n, e) => onSnapshot(r, n, e),
+    collection: s => colRef(p + '/' + s) }; }
+  function colRef(p, c = []) { const col = collection(fs, p); return {
+    path: p,
+    doc: id => docRef(id ? p + '/' + id : p + '/' + doc(col).id),
+    orderBy: (f, d) => colRef(p, [...c, orderBy(f, d)]),
+    limit: n => colRef(p, [...c, limit(n)]),
+    onSnapshot: (n, e) => onSnapshot(query(col, ...c), n, e) }; }
+  const db = { doc: p => docRef(ROOT + p), collection: p => colRef(ROOT + p) };
+
+let uid=null,myName='',canWrite=true;
+let mode='shared',active=null,lists=[],tasks=[],hist=[],names={};
+let loaded={lists:false,tasks:false},unsubs=[],showDone=true,showHist=false;
+let editing=null,pendingRender=false,renaming=false,addingList=false,armed=null;
+const $=s=>document.querySelector(s);
+try{mode=localStorage.getItem('tareas-modo')||'shared';active=localStorage.getItem('tareas-lista')||null}catch(e){}
+const saveView=()=>{try{localStorage.setItem('tareas-modo',mode);active?localStorage.setItem('tareas-lista',active):0}catch(e){}};
+
+function h(tag,props={},...kids){
+  const e=document.createElement(tag);
+  for(const[k,v]of Object.entries(props)){
+    if(k==='class')e.className=v;
+    else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);
+    else if(v===true)e.setAttribute(k,'');
+    else if(v!==false&&v!=null)e.setAttribute(k,v);
+  }
+  for(const c of kids.flat()){if(c==null||c===false)continue;e.append(c.nodeType?c:document.createTextNode(c))}
+  return e;
+}
+let toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,4000)}
+const queues=new Map();
+function write(path,fn){
+  const p=(queues.get(path)||Promise.resolve()).then(fn).catch(e=>{toast(e&&e.code==='quota_exceeded'?'Se alcanzó el límite de datos.':'No se pudo guardar el cambio.');console.error(e)});
+  queues.set(path,p);return p;
+}
+const fmt=ts=>ts?new Date(ts).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+const who=(id,name)=>id===uid?'tú':(name||'Alguien');
+
+/* ---------- scope ---------- */
+function ctx(){
+  if(mode==='personal'){const base=db.doc('data/users/'+uid+'/profile');return{t:base.collection('tasks'),h:base.collection('history')}}
+  return{t:db.collection('lists/'+active+'/tasks'),h:db.collection('lists/'+active+'/history')}
+}
+function currentList(){return lists.find(l=>l.id===active)}
+function openScope(){
+  unsubs.forEach(u=>u());unsubs=[];tasks=[];hist=[];loaded.tasks=false;editing=null;armed=null;
+  if(mode==='shared'&&!active){render();return}
+  if(mode==='personal'&&!uid){render();return}
+  const c=ctx();
+  const err=e=>{$('#status').textContent='No se pudo cargar la lista.';console.error(e)};
+  unsubs.push(c.t.orderBy('createdAt').onSnapshot(s=>{
+    tasks=s.docs.map(d=>({id:d.id,...d.data()}));loaded.tasks=true;
+    render();
+  },err));
+  unsubs.push(c.h.orderBy('ts','desc').limit(100).onSnapshot(s=>{
+    hist=s.docs.map(d=>({id:d.id,...d.data()}));renderHist();
+  },err));
+  render();
+}
+function setMode(m){mode=m;saveView();renaming=false;addingList=false;openScope()}
+function setList(id){active=id;mode='shared';saveView();renaming=false;openScope()}
+
+/* ---------- task ops ---------- */
+function log(action,text){const c=ctx();const r=c.h.doc();write(r.path,()=>r.set({ts:Date.now(),by:uid,byName:myName,action,text}))}
+function addTask(text){
+  text=text.trim();if(!text)return;
+  const r=ctx().t.doc();
+  write(r.path,()=>r.set({text,done:false,createdBy:uid,createdByName:myName,createdAt:Date.now()}));log('creó',text);
+}
+function toggle(t){
+  const r=ctx().t.doc(t.id);const done=!t.done;
+  write(r.path,()=>r.update({done,doneBy:done?uid:null,doneByName:done?myName:null,doneAt:done?Date.now():null}));
+  log(done?'validó':'reabrió',t.text);
+}
+function editTask(t,v){
+  v=v.trim();editing=null;
+  if(v&&v!==t.text){const r=ctx().t.doc(t.id);write(r.path,()=>r.update({text:v}));log('editó',t.text+' → '+v)}
+  render();
+}
+function removeTask(t){
+  const r=ctx().t.doc(t.id);write(r.path,()=>r.delete());log('eliminó',t.text);armed=null;
+}
+function newList(name){
+  name=name.trim();if(!name)return;
+  const r=db.collection('lists').doc();
+  write(r.path,()=>r.set({name,order:Date.now(),createdBy:uid}));
+  addingList=false;setList(r.id);
+}
+function renameList(name){
+  name=name.trim();renaming=false;const l=currentList();
+  if(name&&l&&name!==l.name){const r=db.doc('lists/'+l.id);write(r.path,()=>r.update({name}))}
+  render();
+}
+
+/* ---------- render ---------- */
+function render(){
+  renderSeg();renderTabs();
+  if(editing){pendingRender=true;return}
+  renderCard();renderHist();
+}
+function renderSeg(){
+  $('#seg').replaceChildren(
+    h('button',{type:'button','aria-pressed':String(mode==='shared'),onclick:()=>setMode('shared')},'Compartidas'),
+    h('button',{type:'button','aria-pressed':String(mode==='personal'),disabled:!uid,onclick:()=>setMode('personal')},'Personal'));
+}
+function renderTabs(){
+  const t=$('#tabs');t.replaceChildren();
+  if(mode!=='shared')return;
+  for(const l of lists)t.append(h('button',{type:'button',class:'tab','aria-pressed':String(l.id===active),onclick:()=>setList(l.id)},l.name));
+  if(canWrite){
+    if(addingList){
+      const i=h('input',{type:'text',id:'newlist',placeholder:'Nombre de la lista',maxlength:'40',autocomplete:'off'});
+      i.addEventListener('keydown',e=>{if(e.key==='Enter')newList(i.value);if(e.key==='Escape'){addingList=false;renderTabs()}});
+      i.addEventListener('blur',()=>{if(!i.value.trim()){addingList=false;renderTabs()}});
+      t.append(i);setTimeout(()=>i.focus(),0);
+    }else t.append(h('button',{type:'button',class:'tab ghost',onclick:()=>{addingList=true;renderTabs()}},'+ Lista'));
+  }
+}
+function renderCard(){
+  const card=$('#card');
+  if(!loaded.lists&&mode==='shared'){card.replaceChildren(h('div',{class:'empty',style:'border:0'},'Cargando…'));return}
+  if(mode==='shared'&&!currentList()){
+    card.replaceChildren(h('div',{class:'empty',style:'border:0'},lists.length?'Elige una lista.':'Aún no hay listas compartidas. Crea la primera con «+ Lista».'));return}
+  if(!loaded.tasks){card.replaceChildren(h('div',{class:'empty',style:'border:0'},'Cargando tareas…'));return}
+
+  const l=currentList();
+  const open=tasks.filter(t=>!t.done),done=tasks.filter(t=>t.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+  let title;
+  if(mode==='personal')title=h('h2',{},'Mis tareas');
+  else if(renaming){
+    const i=h('input',{type:'text',id:'renamelist',value:l.name,maxlength:'40',autocomplete:'off'});
+    i.addEventListener('keydown',e=>{if(e.key==='Enter')renameList(i.value);if(e.key==='Escape'){renaming=false;render()}});
+    i.addEventListener('blur',()=>renameList(i.value));
+    title=i;setTimeout(()=>i.focus(),0);
+  }else title=h('h2',{},l.name);
+  const head=h('div',{class:'card-h'},title,
+    mode==='personal'?h('span',{class:'note'},'Solo tú la ves')
+    :(canWrite&&!renaming?h('button',{type:'button',class:'linkbtn',onclick:()=>{renaming=true;render()}},'Renombrar'):h('span',{class:'note'},'Compartida')));
+
+  const input=h('input',{type:'text',id:'newtask',placeholder:'Añadir tarea',maxlength:'200',autocomplete:'off'});
+  const go=()=>{const v=input.value;input.value='';addTask(v);input.focus()};
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')go()});
+  const add=canWrite?h('div',{class:'add'},input,h('button',{type:'button',class:'btn primary',onclick:go},'Añadir')):null;
+
+  const row=t=>{
+    const txt=h('button',{type:'button',class:'txt',disabled:!canWrite,onclick:()=>startEdit(t,txt)},t.text);
+    const meta=t.done?'Validada por '+who(t.doneBy,t.doneByName)+' · '+fmt(t.doneAt):'Creada por '+who(t.createdBy,t.createdByName)+' · '+fmt(t.createdAt);
+    const isArmed=armed===t.id;
+    return h('li',{class:'item'+(t.done?' done':'')},
+      h('button',{type:'button',class:'check',disabled:!canWrite,'aria-label':(t.done?'Reabrir: ':'Validar: ')+t.text,'aria-pressed':String(!!t.done),onclick:()=>toggle(t)},t.done?'✓':''),
+      h('div',{class:'body'},txt,h('div',{class:'meta'},meta)),
+      canWrite?h('button',{type:'button',class:'del'+(isArmed?' armed':''),'aria-label':'Eliminar '+t.text,onclick:()=>{if(armed===t.id)removeTask(t);else{armed=t.id;renderCard();setTimeout(()=>{if(armed===t.id){armed=null;if(!editing)renderCard()}},3000)}}},isArmed?'¿Seguro?':'Eliminar'):null);
+  };
+  const parts=[head,add,
+    open.length?h('ul',{class:'items'},open.map(row)):h('div',{class:'empty'},done.length?'Todo validado.':'No hay tareas. Escribe la primera arriba.')];
+  if(done.length){
+    parts.push(h('div',{class:'sect'},h('span',{},'Validadas ('+done.length+')'),
+      h('button',{type:'button',class:'linkbtn',onclick:()=>{showDone=!showDone;renderCard()}},showDone?'Ocultar':'Mostrar')));
+    if(showDone)parts.push(h('ul',{class:'items'},done.map(row)));
+  }
+  card.replaceChildren(...parts);
+}
+function startEdit(t,btn){
+  editing=t.id;
+  const i=h('input',{type:'text',id:'edit-'+t.id,value:t.text,maxlength:'200',autocomplete:'off'});
+  btn.replaceWith(i);i.focus();i.select();
+  let finished=false;
+  const fin=save=>{if(finished)return;finished=true;const v=i.value;editing=null;
+    if(save)editTask(t,v);else{editing=null;render()}
+    if(pendingRender){pendingRender=false;render()}};
+  i.addEventListener('keydown',e=>{if(e.key==='Enter')fin(true);if(e.key==='Escape')fin(false)});
+  i.addEventListener('blur',()=>fin(true));
+}
+function renderHist(){
+  const c=$('#histcard');
+  if(!loaded.tasks||(mode==='shared'&&!currentList())){c.replaceChildren();return}
+  const head=h('div',{class:'card-h',style:'padding-bottom:12px'},h('h2',{style:'font-size:17px'},'Histórico'),
+    h('button',{type:'button',class:'linkbtn',onclick:()=>{showHist=!showHist;renderHist()}},showHist?'Ocultar':'Mostrar'+(hist.length?' ('+hist.length+')':'')));
+  const parts=[head];
+  if(showHist){
+    parts.push(hist.length?h('ul',{class:'hist'},hist.map(x=>h('li',{},
+      h('span',{class:'tag '+x.action},x.action),
+      h('div',{class:'what'},h('strong',{},who(x.by,x.byName)),' · ',x.text,h('time',{},fmt(x.ts))))))
+    :h('div',{class:'empty'},'Aún no hay movimientos.'));
+  }
+  c.replaceChildren(...parts);
+}
+
+/* ---------- start ---------- */
+let begun=false;
+function begin(){
+  if(begun)return;begun=true;
+  const status=$('#status');
+  const ok='Compartido · se guarda solo';
+  status.textContent=ok;
+  const timer=setTimeout(()=>{status.textContent='No se alcanzan los datos todavía. Puede que no estén al día.'},10000);
+  db.collection('lists').orderBy('order').onSnapshot(s=>{
+    lists=s.docs.map(d=>({id:d.id,...d.data()}));loaded.lists=true;clearTimeout(timer);status.textContent=ok;
+    if(!window.__init){window.__init=true;
+      if(mode==='personal'&&!uid)mode='shared';
+      if(mode==='shared'&&!lists.some(l=>l.id===active))active=lists[0]?lists[0].id:null;
+      openScope();
+    }else{
+      if(mode==='shared'&&!lists.some(l=>l.id===active)){active=lists[0]?lists[0].id:null;openScope()}else render();
+    }
+  },e=>{clearTimeout(timer);status.textContent=e&&e.code==='permission-denied'?'La nube rechaza el acceso: faltan las reglas de Firestore para «tareas».':'No se pudieron cargar las listas.';console.error(e)});
+}
+function start(){
+  const status=$('#status'),loginBtn=$('#loginBtn'),logoutBtn=$('#logoutBtn'),who=$('#who');
+  loginBtn.addEventListener('click',async()=>{
+    try{const r=await signInWithPopup(auth,new GoogleAuthProvider());
+      if(!ALLOWED_EDITORS.includes(r.user.email)){toast('Esta cuenta no tiene permiso.');await signOut(auth)}}catch(e){}
+  });
+  logoutBtn.addEventListener('click',async()=>{await signOut(auth);location.reload()});
+  onAuthStateChanged(auth,user=>{
+    if(user&&!ALLOWED_EDITORS.includes(user.email)){signOut(auth);return}
+    loginBtn.hidden=!!user;logoutBtn.hidden=!user;who.hidden=!user;
+    if(!user){status.textContent='Inicia sesión para ver las tareas';
+      $('#card').replaceChildren(h('div',{class:'empty',style:'border:0'},'Inicia sesión con una cuenta autorizada.'));return}
+    uid=user.uid;myName=user.displayName||user.email.split('@')[0];who.textContent=user.email;begin();
+  });
+}
+render();
+start();
+</script>
+</body>
+</html>

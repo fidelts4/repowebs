@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Horario de clase</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: cabecera + selector de alumno, y una tabla semanal (filas = actividades, columnas = Lun-Vie) que hace scroll horizontal en móvil. */
+:root{
+  --bg:#f2f5f7; --surface:#ffffff; --ink:#16202a; --muted:#5b6a78; --line:#dce3e9;
+  --accent:#1d6f6a; --accent-ink:#ffffff; --today:#e8f3f2; --danger:#b3261e;
+  --chip-l:90%; --chip-s:75%; --chip-fg-l:24%; --chip-bd-l:78%;
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11171c; --surface:#192027; --ink:#e7edf1; --muted:#97a5b1; --line:#2a343d;
+  --accent:#5cc3bb; --accent-ink:#0b1a19; --today:#1d2b2e; --danger:#f2867e;
+  --chip-l:24%; --chip-s:45%; --chip-fg-l:88%; --chip-bd-l:34%; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11171c; --surface:#192027; --ink:#e7edf1; --muted:#97a5b1; --line:#2a343d;
+  --accent:#5cc3bb; --accent-ink:#0b1a19; --today:#1d2b2e; --danger:#f2867e;
+  --chip-l:24%; --chip-s:45%; --chip-fg-l:88%; --chip-bd-l:34%; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);
+  padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:10px 24px}
+h1{font:700 clamp(26px,5vw,36px)/1.05 var(--f-display);margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:6px 0 0}
+.status{font-size:13px;color:var(--muted)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.picker{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.picker .lbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.pill{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;display:inline-flex;align-items:center;gap:8px;font-weight:500}
+.pill[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pill .dot{width:10px;height:10px;border-radius:50%;background:hsl(var(--h) 65% 50%)}
+.pill.ghost{border-style:dashed;color:var(--muted)}
+
+.scroller{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:700px;table-layout:fixed}
+th,td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0;vertical-align:top}
+th:last-child,td:last-child{border-right:0}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+thead th{font:600 13px var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:12px 10px;text-align:left}
+thead th.today{color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent)}
+th.rowh{width:132px;text-align:left;font-weight:600;background:var(--bg)}
+th.rowh button{all:unset;box-sizing:border-box;display:block;width:100%;padding:14px 12px;cursor:pointer;font-weight:600}
+th.rowh button:hover{color:var(--accent)}
+th.rowh button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+td.today{background:var(--today)}
+.cell{all:unset;box-sizing:border-box;display:flex;flex-wrap:wrap;align-content:flex-start;gap:5px;width:100%;min-height:56px;padding:10px;cursor:pointer;transition:opacity .15s}
+.cell:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.cell:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cell:disabled{cursor:default}
+.cell.off{opacity:.28}
+.cell .txt{font-weight:500}
+.cell.empty::after{content:"+";color:var(--muted);opacity:0;font-size:18px;line-height:1}
+.cell.empty:hover::after,.cell.empty:focus-visible::after{opacity:.7}
+.cell.empty:disabled::after{display:none}
+.chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;
+  background:hsl(var(--h) var(--chip-s) var(--chip-l));color:hsl(var(--h) 60% var(--chip-fg-l));border:1px solid hsl(var(--h) 50% var(--chip-bd-l))}
+
+.state{padding:36px 16px;text-align:center;color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.linkbtn{border:0;background:none;color:var(--accent);font-weight:600;padding:4px 6px;font-size:13px}
+.btn.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,var(--line))}
+.btn:disabled{opacity:.5;cursor:default}
+
+.overlay{position:fixed;inset:0;background:rgba(10,16,22,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.modal{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;width:min(420px,100%);max-height:calc(100% - 24px);overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.modal h2{font:700 20px/1.15 var(--f-display);margin:0}
+.modal .hint{color:var(--muted);margin:0;font-size:13px}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 12px;text-align:left;width:100%}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--today)}
+.box{width:18px;height:18px;border-radius:5px;border:2px solid var(--muted);display:grid;place-items:center;flex:none;font-size:12px;line-height:1}
+.opt[aria-pressed="true"] .box{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.opt .spacer{flex:1}
+.row{display:flex;gap:8px}
+input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-width:0;flex:1;width:100%}
+.radio{display:flex;gap:8px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:30;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.back{color:var(--muted);text-decoration:none;font-size:14px;align-self:flex-start}
+.back:hover{color:var(--accent)}
+.authbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.authbar .who{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="../">← Índice</a>
+  <header>
+    <div>
+      <h1>Horario de clase 26-27</h1>
+      <p class="sub">Semana tipo. Toca una casilla para elegir qué alumnos participan.</p>
+    </div>
+    <div class="status" id="status" role="status">Conectando…</div>
+  </header>
+  <div class="authbar"><button class="btn primary" id="loginBtn" type="button">🔐 Iniciar sesión para editar</button><span class="who" id="who" hidden></span><button class="linkbtn" id="logoutBtn" type="button" hidden>Salir</button></div>
+  <div class="picker" id="picker" aria-label="Selector de alumno"></div>
+  <div class="scroller" id="grid"><div class="state">Cargando horario…</div></div>
+  <div class="actions" id="actions"></div>
+</div>
+<div id="layer"></div>
+<div id="toast" class="toast" hidden role="alert"></div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getFirestore, doc, collection, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  const ROOT = 'horario/main/';
+  const ALLOWED_EDITORS = ['letalfi@gmail.com', 'familiatamayoaragon@gmail.com'];
+  const firebaseApp = initializeApp({
+    apiKey: "AIzaSyBRV-8u1lGReVePvM_yGpkZmwRYFzEvjbg",
+    authDomain: "repowebsft.firebaseapp.com",
+    projectId: "repowebsft",
+    storageBucket: "repowebsft.firebasestorage.app",
+    messagingSenderId: "84158890650",
+    appId: "1:84158890650:web:0aec1222fd74a317f85523"
+  });
+  const fs = getFirestore(firebaseApp);
+  const auth = getAuth(firebaseApp);
+
+  // Adaptador mínimo: expone doc/collection/set/update/delete/onSnapshot/orderBy/limit sobre Firestore
+  function docRef(p) { const r = doc(fs, p); return {
+    id: r.id, path: p,
+    set: d => setDoc(r, d), update: d => updateDoc(r, d), delete: () => deleteDoc(r),
+    onSnapshot: (n, e) => onSnapshot(r, n, e),
+    collection: s => colRef(p + '/' + s) }; }
+  function colRef(p, c = []) { const col = collection(fs, p); return {
+    path: p,
+    doc: id => docRef(id ? p + '/' + id : p + '/' + doc(col).id),
+    orderBy: (f, d) => colRef(p, [...c, orderBy(f, d)]),
+    limit: n => colRef(p, [...c, limit(n)]),
+    onSnapshot: (n, e) => onSnapshot(query(col, ...c), n, e) }; }
+  const db = { doc: p => docRef(ROOT + p), collection: p => colRef(ROOT + p) };
+
+const DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes'];
+const HUES=[150,35,275,185,95,310,60,0];
+let students=[], rows=[], canWrite=true, filter=null, loaded={s:false,r:false}, modal=null;
+const $=s=>document.querySelector(s);
+
+function h(tag,props={},...kids){
+  const e=document.createElement(tag);
+  for(const[k,v]of Object.entries(props)){
+    if(k==='class')e.className=v;
+    else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);
+    else if(k==='style')e.style.cssText=v;
+    else if(v===true)e.setAttribute(k,'');
+    else if(v!==false&&v!=null)e.setAttribute(k,v);
+  }
+  for(const c of kids.flat()){ if(c==null||c===false)continue; e.append(c.nodeType?c:document.createTextNode(c)); }
+  return e;
+}
+try{filter=localStorage.getItem('horario-filtro')||null}catch(e){}
+function saveFilter(){try{filter?localStorage.setItem('horario-filtro',filter):localStorage.removeItem('horario-filtro')}catch(e){}}
+
+let toastT;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,4000)}
+
+/* one write at a time per document */
+const queues=new Map();
+function write(path,fn){
+  const p=(queues.get(path)||Promise.resolve()).then(fn).catch(e=>{
+    toast(e&&e.code==='quota_exceeded'?'Se alcanzó el límite de datos.':'No se pudo guardar el cambio.');
+    console.error(e);
+  });
+  queues.set(path,p);return p;
+}
+const rowRef=id=>db.doc('rows/'+id);
+const byId=id=>students.find(s=>s.id===id);
+const getRow=id=>rows.find(r=>r.id===id);
+const chip=s=>h('span',{class:'chip',style:'--h:'+s.hue},s.name);
+
+function cellIds(row,d){const v=row.cells&&row.cells['d'+d];return Array.isArray(v)?v:[]}
+function setCell(rowId,d,val){write('rows/'+rowId,()=>rowRef(rowId).update({['cells.d'+d]:val}))}
+
+function addStudent(name){
+  name=name.trim();
+  if(!name)return null;
+  if(students.some(s=>s.name.toLowerCase()===name.toLowerCase())){toast('Ese alumno ya existe.');return null}
+  const ref=db.collection('students').doc();
+  const hue=HUES[students.length%HUES.length];
+  write('students/'+ref.id,()=>ref.set({name,hue,order:Date.now()}));
+  return ref.id;
+}
+
+/* ---------- render ---------- */
+function render(){
+  renderPicker();renderGrid();renderActions();
+  if(modal)refreshModal();
+}
+function renderPicker(){
+  const p=$('#picker');p.replaceChildren(h('span',{class:'lbl'},'Alumno'));
+  const mk=(id,label,hue)=>h('button',{class:'pill',type:'button','aria-pressed':String(filter===id),style:hue!=null?'--h:'+hue:'',
+    onclick:()=>{filter=id;saveFilter();render()}},hue!=null?h('span',{class:'dot'}):null,label);
+  p.append(mk(null,'Todos'));
+  for(const s of students)p.append(mk(s.id,s.name,s.hue));
+  p.append(h('button',{class:'pill ghost',type:'button',disabled:!canWrite,onclick:()=>openModal({type:'students'})},'+ Alumnos'));
+  if(filter&&!byId(filter)&&loaded.s){filter=null;saveFilter()}
+}
+function renderGrid(){
+  const g=$('#grid');
+  if(!loaded.s||!loaded.r){g.replaceChildren(h('div',{class:'state'},'Cargando horario…'));return}
+  if(!rows.length){g.replaceChildren(h('div',{class:'state'},'Todavía no hay actividades. ',
+    !students.length&&canWrite?h('button',{class:'btn',type:'button',onclick:seed},'Cargar el horario del Excel'):'Añade la primera con «+ Actividad».'));return}
+  const today=new Date().getDay()-1; // 0 = lunes
+  const head=h('tr',{},h('th',{class:'rowh',scope:'col'},''),DAYS.map((d,i)=>h('th',{scope:'col',class:i===today?'today':''},d)));
+  const body=rows.map(r=>h('tr',{},
+    h('th',{class:'rowh',scope:'row'},h('button',{type:'button',disabled:!canWrite,onclick:()=>openModal({type:'row',rowId:r.id})},r.label)),
+    DAYS.map((_,d)=>{
+      let kids=[],cls='cell',isEmpty=true;
+      if(r.kind==='text'){
+        const t=(r.cells&&r.cells['d'+d])||'';
+        if(typeof t==='string'&&t.trim()){kids=[h('span',{class:'txt'},t)];isEmpty=false}
+      }else{
+        const ss=cellIds(r,d).map(byId).filter(Boolean);
+        if(ss.length){kids=ss.map(chip);isEmpty=false}
+        if(filter&&r.kind!=='text')cls+=ss.some(s=>s.id===filter)?'':' off';
+      }
+      if(isEmpty)cls+=' empty';
+      return h('td',{class:d===today?'today':''},
+        h('button',{type:'button',class:cls,disabled:!canWrite,'aria-label':r.label+', '+DAYS[d],onclick:()=>openModal({type:'cell',rowId:r.id,day:d})},kids));
+    })));
+  g.replaceChildren(h('table',{},h('thead',{},head),h('tbody',{},body)));
+}
+function renderActions(){
+  const a=$('#actions');a.replaceChildren();
+  if(canWrite&&loaded.r)a.append(h('button',{class:'btn',type:'button',onclick:()=>openModal({type:'addrow'})},'+ Actividad'));
+}
+
+/* ---------- modals ---------- */
+function openModal(m){modal=m;buildModal()}
+function closeModal(){modal=null;$('#layer').replaceChildren()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal)closeModal()});
+
+function studentList(row,d){
+  const wrap=h('div',{class:'opts',id:'mlist'});
+  const sel=cellIds(row,d);
+  for(const s of students){
+    const on=sel.includes(s.id);
+    wrap.append(h('button',{type:'button',class:'opt','aria-pressed':String(on),onclick:()=>{
+      const cur=cellIds(getRow(row.id)||row,d);
+      setCell(row.id,d,cur.includes(s.id)?cur.filter(x=>x!==s.id):[...cur,s.id]);
+    }},h('span',{class:'box'},on?'✓':''),chip(s)));
+  }
+  if(!students.length)wrap.append(h('p',{class:'hint'},'Aún no hay alumnos. Añade uno abajo.'));
+  return wrap;
+}
+function buildModal(){
+  const layer=$('#layer');const m=modal;let box;
+  const close=h('button',{class:'btn primary',type:'button',onclick:closeModal},'Listo');
+  if(m.type==='cell'){
+    const row=getRow(m.rowId);if(!row){closeModal();return}
+    if(row.kind==='text'){
+      const inp=h('input',{type:'text',id:'celltxt',value:(row.cells&&row.cells['d'+m.day])||'',placeholder:'Escribe aquí',autocomplete:'off',maxlength:'120'});
+      let t;inp.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>setCell(row.id,m.day,inp.value),500)});
+      inp.addEventListener('blur',()=>{clearTimeout(t);setCell(row.id,m.day,inp.value)});
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter'){setCell(row.id,m.day,inp.value);closeModal()}});
+      box=h('div',{class:'modal',role:'dialog','aria-modal':'true'},h('h2',{},row.label+' · '+DAYS[m.day]),inp,h('div',{class:'row'},close));
+      layer.replaceChildren(h('div',{class:'overlay',onmousedown:e=>{if(e.target===e.currentTarget){setCell(row.id,m.day,inp.value);closeModal()}}},box));
+      setTimeout(()=>inp.focus(),0);return;
+    }
+    const add=h('input',{type:'text',id:'newstudent',placeholder:'Nuevo alumno',autocomplete:'off',maxlength:'30'});
+    const doAdd=()=>{const id=addStudent(add.value);if(id){const cur=cellIds(getRow(row.id)||row,m.day);setCell(row.id,m.day,[...cur,id]);add.value=''}};
+    add.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd()});
+    box=h('div',{class:'modal',role:'dialog','aria-modal':'true'},
+      h('h2',{},row.label+' · '+DAYS[m.day]),
+      h('p',{class:'hint'},'Marca los alumnos que participan.'),
+      studentList(row,m.day),
+      h('div',{class:'row'},add,h('button',{class:'btn',type:'button',onclick:doAdd},'Añadir')),
+      h('div',{class:'row'},close));
+  }else if(m.type==='row'){
+    const row=getRow(m.rowId);if(!row){closeModal();return}
+    const name=h('input',{type:'text',id:'rowname',value:row.label,maxlength:'40',autocomplete:'off'});
+    const save=()=>{const v=name.value.trim();if(v&&v!==row.label)write('rows/'+row.id,()=>rowRef(row.id).update({label:v}))};
+    name.addEventListener('blur',save);name.addEventListener('keydown',e=>{if(e.key==='Enter'){save();closeModal()}});
+    let armed=false;
+    const del=h('button',{class:'btn danger',type:'button',onclick:()=>{
+      if(!armed){armed=true;del.textContent='Confirmar: eliminar fila y sus datos';return}
+      write('rows/'+row.id,()=>rowRef(row.id).delete());closeModal();
+    }},'Eliminar fila');
+    box=h('div',{class:'modal',role:'dialog','aria-modal':'true'},
+      h('h2',{},'Editar fila'),
+      h('p',{class:'hint'},row.kind==='text'?'Fila de texto libre (por ejemplo, el menú).':'Fila de alumnos.'),
+      name,h('div',{class:'row'},close,del));
+    layer.replaceChildren(h('div',{class:'overlay',onmousedown:e=>{if(e.target===e.currentTarget){save();closeModal()}}},box));
+    return;
+  }else if(m.type==='addrow'){
+    let kind='students';
+    const name=h('input',{type:'text',id:'newrow',placeholder:'Nombre (por ejemplo, Inglés)',maxlength:'40',autocomplete:'off'});
+    const k1=h('button',{type:'button',class:'opt','aria-pressed':'true'},h('span',{class:'box'},'✓'),'Alumnos');
+    const k2=h('button',{type:'button',class:'opt','aria-pressed':'false'},h('span',{class:'box'},''),'Texto libre');
+    const setK=k=>{kind=k;for(const[b,on]of[[k1,k==='students'],[k2,k==='text']]){b.setAttribute('aria-pressed',String(on));b.firstChild.textContent=on?'✓':''}};
+    k1.onclick=()=>setK('students');k2.onclick=()=>setK('text');
+    const create=()=>{
+      const v=name.value.trim();if(!v)return;
+      const ref=db.collection('rows').doc();
+      write('rows/'+ref.id,()=>ref.set({label:v,kind,order:Date.now(),cells:{}}));closeModal();
+    };
+    name.addEventListener('keydown',e=>{if(e.key==='Enter')create()});
+    box=h('div',{class:'modal',role:'dialog','aria-modal':'true'},h('h2',{},'Nueva actividad'),name,
+      h('div',{class:'opts'},k1,k2),
+      h('div',{class:'row'},h('button',{class:'btn primary',type:'button',onclick:create},'Crear'),h('button',{class:'btn',type:'button',onclick:closeModal},'Cancelar')));
+    setTimeout(()=>name.focus(),0);
+  }else if(m.type==='students'){
+    const add=h('input',{type:'text',id:'newstudent2',placeholder:'Nuevo alumno',autocomplete:'off',maxlength:'30'});
+    const doAdd=()=>{if(addStudent(add.value))add.value=''};
+    add.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd()});
+    box=h('div',{class:'modal',role:'dialog','aria-modal':'true'},h('h2',{},'Alumnos'),
+      h('p',{class:'hint'},'Los alumnos aparecen como opciones en todas las casillas.'),
+      h('div',{class:'opts',id:'mlist'}),
+      h('div',{class:'row'},add,h('button',{class:'btn',type:'button',onclick:doAdd},'Añadir')),
+      h('div',{class:'row'},close));
+  }
+  layer.replaceChildren(h('div',{class:'overlay',onmousedown:e=>{if(e.target===e.currentTarget)closeModal()}},box));
+  refreshModal();
+}
+let armedStudent=null;
+function refreshModal(){
+  const m=modal;if(!m)return;
+  const list=$('#mlist');if(!list)return;
+  if(m.type==='cell'){
+    const row=getRow(m.rowId);if(!row){closeModal();return}
+    list.replaceWith(studentList(row,m.day));
+  }else if(m.type==='students'){
+    list.replaceChildren(...students.map(s=>{
+      const armed=armedStudent===s.id;
+      return h('div',{class:'opt',style:'cursor:default'},chip(s),h('span',{class:'spacer'}),
+        h('button',{type:'button',class:'btn danger',style:'padding:4px 10px',onclick:()=>{
+          if(!armed){armedStudent=s.id;refreshModal();return}
+          armedStudent=null;write('students/'+s.id,()=>db.doc('students/'+s.id).delete());
+        }},armed?'Confirmar':'Quitar'));
+    }));
+    if(!students.length)list.append(h('p',{class:'hint'},'Aún no hay alumnos.'));
+  }
+}
+
+/* ---------- data ---------- */
+async function seed(){
+  const S=[['alba','Alba',345],['diego','Diego',215]];
+  const e=[],a=['alba'],d=['diego'];
+  const R=[
+    ['almuerzo','Almuerzo','text',{d0:'Zumo+Galletas',d1:'Sandwich',d2:'Fruta',d3:'Zumo+Galletas',d4:'Libre'}],
+    ['uniforme','Uniforme','students',{d0:e,d1:a,d2:['alba','diego'],d3:e,d4:e}],
+    ['flauta','Flauta','students',{d0:e,d1:e,d2:a,d3:e,d4:e}],
+    ['futbol','Fútbol','students',{d0:d,d1:e,d2:d,d3:e,d4:e}],
+    ['piscina','Piscina','students',{d0:a,d1:e,d2:e,d3:d,d4:e}]];
+  try{
+    for(const [id,name,hue] of S)await db.doc('students/'+id).set({name,hue,order:S.findIndex(x=>x[0]===id)+1});
+    for(const [i,[id,label,kind,cells]] of R.entries())await db.doc('rows/'+id).set({label,kind,order:i+1,cells});
+  }catch(err){toast('No se pudo cargar el horario inicial.');console.error(err)}
+}
+let begun=false;
+function begin(){
+  if(begun)return;begun=true;
+  const status=$('#status');
+  status.textContent='Compartido · los cambios se guardan solos';
+  const timer=setTimeout(()=>{status.textContent='No se alcanzan los datos todavía. Puede que no estén al día.'},10000);
+  const done=()=>{if(loaded.s&&loaded.r){clearTimeout(timer);status.textContent='Compartido · los cambios se guardan solos'}};
+  const err=e=>{clearTimeout(timer);status.textContent=e&&e.code==='permission-denied'?'La nube rechaza el acceso: faltan las reglas de Firestore para «horario».':'No se pudo cargar el horario.';console.error(e)};
+  db.collection('students').orderBy('order').onSnapshot(snap=>{
+    students=snap.docs.map(d=>({id:d.id,...d.data()}));loaded.s=true;render();done();
+  },err);
+  db.collection('rows').orderBy('order').onSnapshot(snap=>{
+    rows=snap.docs.map(d=>({id:d.id,...d.data()}));loaded.r=true;render();done();
+  },err);
+}
+function start(){
+  const status=$('#status'),loginBtn=$('#loginBtn'),logoutBtn=$('#logoutBtn'),who=$('#who');
+  loginBtn.addEventListener('click',async()=>{
+    try{const r=await signInWithPopup(auth,new GoogleAuthProvider());
+      if(!ALLOWED_EDITORS.includes(r.user.email)){toast('Esta cuenta no tiene permiso.');await signOut(auth)}}catch(e){}
+  });
+  logoutBtn.addEventListener('click',async()=>{await signOut(auth);location.reload()});
+  onAuthStateChanged(auth,user=>{
+    if(user&&!ALLOWED_EDITORS.includes(user.email)){signOut(auth);return}
+    loginBtn.hidden=!!user;logoutBtn.hidden=!user;who.hidden=!user;
+    if(!user){status.textContent='Inicia sesión para ver el horario';
+      $('#grid').replaceChildren(h('div',{class:'state'},'Inicia sesión con una cuenta autorizada.'));return}
+    who.textContent=user.email;begin();
+  });
+}
+render();
+start();
+
+</script>
+</body>
+</html>
