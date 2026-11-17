@@ -85,6 +85,7 @@
 
   .section-title { padding: 0 16px; margin: 28px 0 8px; font-size: 1.05rem; text-align: center; }
   .time .label { color: var(--muted); font-size: 1.1rem; margin-right: 2px; }
+  .day h2 .field-time { font-size: 1rem; font-weight: 500; margin-left: 6px; }
   .home-away { display: inline-block; margin-top: 4px; }
   a.back { display: block; width: fit-content; margin-bottom: 8px; color: var(--muted); font-size: .85rem; text-decoration: none; }
   a.back:hover { color: var(--accent); }
@@ -340,7 +341,12 @@
       section.dataset.day = day.day;
 
       const h2 = document.createElement('h2');
-      h2.innerHTML = `${day.name} <span class="today-badge" hidden>Hoy</span>`;
+      h2.innerHTML = `<span>${day.name}<input class="field-time" type="date" value="${day.date || ''}"></span> <span class="today-badge" hidden>Hoy</span>`;
+      const dateInput = h2.querySelector('input');
+      dateInput.addEventListener('change', () => {
+        day.date = dateInput.value;
+        saveMatches();
+      });
       section.appendChild(h2);
 
       if (day.matches.length === 0) {
