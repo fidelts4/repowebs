@@ -196,6 +196,14 @@
     syncToCloud();
   }
 
+  // Próxima fecha (hoy incluido) en que cae ese día de la semana, en formato yyyy-mm-dd local
+  function nextDateForWeekday(weekday) {
+    const d = new Date();
+    d.setDate(d.getDate() + (weekday - d.getDay() + 7) % 7);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
   function mapsUrl(place) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
   }
@@ -341,7 +349,7 @@
       section.dataset.day = day.day;
 
       const h2 = document.createElement('h2');
-      h2.innerHTML = `<span>${day.name}<input class="field-time" type="date" value="${day.date || ''}"></span> <span class="today-badge" hidden>Hoy</span>`;
+      h2.innerHTML = `<span>${day.name}<input class="field-time" type="date" value="${day.date || nextDateForWeekday(day.day)}"></span> <span class="today-badge" hidden>Hoy</span>`;
       const dateInput = h2.querySelector('input');
       dateInput.addEventListener('change', () => {
         day.date = dateInput.value;
